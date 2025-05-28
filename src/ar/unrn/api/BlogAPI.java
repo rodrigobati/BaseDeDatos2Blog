@@ -2,12 +2,23 @@ package ar.unrn.api;
 
 import static spark.Spark.get;
 
+import org.lightcouch.CouchDbClient;
+import org.lightcouch.NoDocumentException;
+
+import com.google.gson.Gson;
+
+import ar.unrn.factory.GsonFactory;
+import ar.unrn.modelo.Pagina;
 import spark.Spark;
 
 
 public class BlogAPI {
 	
 	public static void main(String[] args) {
+		
+		CouchDbClient dbClient = new CouchDbClient();
+		
+		Gson gson = GsonFactory.build();
 
 		/**
 		 * Recupera una página por su id.
@@ -27,15 +38,23 @@ public class BlogAPI {
 			   }
 			]
 		 * */
-		get("/pagina-id/:id", (req, res) ->
-			{
-				res.header("Access-Control-Allow-Origin", "*");
-				//Recupero el id que viene por parámetro
-				String paginaId = req.params("id");
+		get("/pagina-id/:id", (req, res) -> {
+		    res.header("Access-Control-Allow-Origin", "*");
+		    res.type("application/json");
 
-				//implementar aca ...
-				return null;
-			});
+		    String paginaId = req.params("id");
+
+		    try {
+		        Pagina pagina = dbClient.find(Pagina.class, paginaId);
+		        return gson.toJson(pagina);
+		    } catch (NoDocumentException e) {
+		        res.status(404);
+		        return "[{\"error\":\"Página no encontrada\"}]";
+		    } catch (Exception e) {
+		        res.status(500);
+		        return "[{\"error\":\"Error al acceder a la base de datos\"}]";
+		    }
+		});
 
 		/**
 		 * Devuelve un array de objetos id,count. Donde id es el nombre del autor y count la cantidad de post
