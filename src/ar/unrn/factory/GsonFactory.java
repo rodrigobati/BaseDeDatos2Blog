@@ -17,15 +17,15 @@ public class GsonFactory {
                     JsonObject obj = new JsonObject();
 
                     JsonObject idObj = new JsonObject();
-                    idObj.addProperty("$oid", pagina.id());
+                    idObj.addProperty("$oid", pagina.getId());
                     obj.add("_id", idObj);
 
-                    obj.addProperty("titulo", pagina.titulo());
-                    obj.addProperty("texto", pagina.texto());
-                    obj.addProperty("autor", pagina.autor());
+                    obj.addProperty("titulo", pagina.getTitulo());
+                    obj.addProperty("texto", pagina.getTexto());
+                    obj.addProperty("autor", pagina.getAutor());
 
                     JsonObject fechaObj = new JsonObject();
-                    fechaObj.addProperty("$date", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX").format(pagina.fecha()));
+                    fechaObj.addProperty("$date", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX").format(pagina.getFecha()));
                     obj.add("fecha", fechaObj);
 
                     JsonArray array = new JsonArray();

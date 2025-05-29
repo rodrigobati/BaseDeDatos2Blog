@@ -2,10 +2,13 @@ package ar.unrn.api;
 
 import static spark.Spark.get;
 
+import java.util.List;
+
 import org.lightcouch.CouchDbClient;
 import org.lightcouch.NoDocumentException;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 import ar.unrn.factory.GsonFactory;
 import ar.unrn.modelo.Pagina;
@@ -52,7 +55,8 @@ public class BlogAPI {
 		        return "[{\"error\":\"Página no encontrada\"}]";
 		    } catch (Exception e) {
 		        res.status(500);
-		        return "[{\"error\":\"Error al acceder a la base de datos\"}]";
+		        return e.getMessage();
+		        //return "[{\"error\":\"Error al acceder a la base de datos\"}]";
 		    }
 		});
 
@@ -70,13 +74,19 @@ public class BlogAPI {
 			   ...	
 			]
 		 * */
-		get("/byautor", (req, res) ->
-			{
-				res.header("Access-Control-Allow-Origin", "*");
+		get("/byautor", (req, res) -> {
+		    res.header("Access-Control-Allow-Origin", "*");
 
-    //implementar aca ...
-    return null;
-			});
+		     //dbClient = new CouchDbClient(); // asegurate de tenerlo bien configurado
+
+		    List<JsonObject> result = dbClient.view("autor/countPorAutor")
+		        .group(true)
+		        .query(JsonObject.class);
+
+		    //Gson gson = new Gson();
+		    return gson.toJson(result);
+		});
+
 
 		/**
 		 * Retorna los ultimos 4 post ordenados por fecha.
