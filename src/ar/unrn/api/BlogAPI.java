@@ -8,6 +8,8 @@ import org.lightcouch.CouchDbClient;
 import org.lightcouch.NoDocumentException;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import ar.unrn.factory.GsonFactory;
@@ -76,16 +78,24 @@ public class BlogAPI {
 		 * */
 		get("/byautor", (req, res) -> {
 		    res.header("Access-Control-Allow-Origin", "*");
+		    //CouchDbClient dbClient = new CouchDbClient();
 
-		     //dbClient = new CouchDbClient(); // asegurate de tenerlo bien configurado
+		    JsonArray resultado = new JsonArray();
 
-		    List<JsonObject> result = dbClient.view("autor/countPorAutor")
+		    List<JsonObject> rows = dbClient.view("autor/countPorAutor")
 		        .group(true)
 		        .query(JsonObject.class);
 
-		    //Gson gson = new Gson();
-		    return gson.toJson(result);
+		    for (JsonObject row : rows) {
+		        JsonObject obj = new JsonObject();
+		        obj.addProperty("_id", row.get("key").getAsString());
+		        obj.addProperty("count", row.get("value").getAsInt());
+		        resultado.add(obj);
+		    }
+
+		    return resultado.toString();
 		});
+
 
 
 		/**
@@ -126,13 +136,43 @@ public class BlogAPI {
 			]
 		 * 
 		 * */
-		get("/ultimos4posts", (req, res) ->
-			{
-				res.header("Access-Control-Allow-Origin", "*");
+		get("/ultimos4posts", (req, res) -> {
+		    res.header("Access-Control-Allow-Origin", "*");
 
-    //implementar aca ...
-    return null;
-			});
+		    //CouchDbClient dbClient = new CouchDbClient();
+
+		    List<JsonObject> posts = dbClient.view("ultimos/porFecha")
+		        .descending(true)
+		        .limit(4)
+		        .includeDocs(true) // si querés traer todos los campos
+		        .query(JsonObject.class);
+
+		    // Mapear cada post para devolver solo _id, titulo y resumen
+		    JsonArray resultArray = new JsonArray();
+		    for (JsonObject post : posts) {
+		        JsonObject simplified = new JsonObject();
+
+		        // Formato del _id como {"$oid": "xxx"}
+		        JsonObject oidWrapper = new JsonObject();
+		        oidWrapper.addProperty("$oid", post.get("_id").getAsString());
+		        simplified.add("_id", oidWrapper);
+
+		        simplified.addProperty("titulo", post.get("titulo").getAsString());
+
+		        // Usar campo resumen si existe, o generar uno
+		        String texto = post.has("resumen") 
+		            ? post.get("resumen").getAsString() 
+		            : post.get("texto").getAsString();
+
+		        // Podés truncar el texto si querés
+		        simplified.addProperty("resumen", texto.length() > 50 ? texto.substring(0, 50) + "..." : texto);
+
+		        resultArray.add(simplified);
+		    }
+
+		    return resultArray.toString();
+		});
+
 
 		/**
 		 * Retorna todos los Post para un autor, dado su nombre
@@ -182,16 +222,55 @@ public class BlogAPI {
 			   ...
 			]
 		 * */
-		get("/posts-autor/:nombreautor", (req, res) ->
-			{
-				res.header("Access-Control-Allow-Origin", "*");
-				
-				//Recupero el nombre del autor que viene como parámetro
-				String nombreAutor = req.params("nombreautor");
+		get("/posts-autor/:nombreautor", (req, res) -> {
+		    res.header("Access-Control-Allow-Origin", "*");
 
-    //implementar aca ...
-    return null;
-			});
+		    String nombreAutor = req.params("nombreautor");
+
+		    //CouchDbClient dbClient = new CouchDbClient();
+
+		    List<JsonObject> posts = dbClient.view("porautor/porNombre")
+		        .key(nombreAutor)
+		        .includeDocs(true)
+		        .query(JsonObject.class);
+
+		    JsonArray resultado = new JsonArray();
+
+		    for (JsonObject post : posts) {
+		        JsonObject jsonPost = new JsonObject();
+
+		        // ID como { "$oid": "..." }
+		        JsonObject oid = new JsonObject();
+		        oid.addProperty("$oid", post.get("_id").getAsString());
+		        jsonPost.add("_id", oid);
+
+		        jsonPost.addProperty("titulo", post.get("titulo").getAsString());
+		        jsonPost.addProperty("resumen", post.get("resumen").getAsString());
+		        jsonPost.addProperty("texto", post.get("texto").getAsString());
+
+		        // Array de tags
+		        JsonArray tags = post.getAsJsonArray("tags");
+		        jsonPost.add("tags", tags != null ? tags : new JsonArray());
+
+		        // Array de links-relacionados
+		        JsonArray links = post.getAsJsonArray("links-relacionados");
+		        jsonPost.add("links-relacionados", links != null ? links : new JsonArray());
+
+		        jsonPost.addProperty("autor", post.get("autor").getAsString());
+
+		        // Fecha como { "$date": "..." }
+		        if (post.has("fecha")) {
+		            JsonObject fecha = new JsonObject();
+		            fecha.addProperty("$date", post.get("fecha").getAsString());
+		            jsonPost.add("fecha", fecha);
+		        }
+
+		        resultado.add(jsonPost);
+		    }
+
+		    return resultado.toString();
+		});
+
 
 		/**
 		 * Retorna un post dado un id.
@@ -221,16 +300,51 @@ public class BlogAPI {
 			   }
 			]
 		 * */
-		get("/post-id/:id", (req, res) ->
-			{
-				res.header("Access-Control-Allow-Origin", "*");
-				
-				//Recupero el id del post que viene por parámetro
-				String postId = req.params("id");
+		get("/post-id/:id", (req, res) -> {
+		    res.header("Access-Control-Allow-Origin", "*");
 
-    //implementar aca ...
-    return null;
-			});
+		    String postId = req.params("id");
+
+		    //CouchDbClient dbClient = new CouchDbClient();
+
+		    JsonObject post;
+		    try {
+		        post = dbClient.find(JsonObject.class, postId);
+		    } catch (NoDocumentException e) {
+		        res.status(404);
+		        return "[{\"error\": \"Post no encontrado\"}]";
+		    }
+
+		    JsonArray resultado = new JsonArray();
+		    JsonObject jsonPost = new JsonObject();
+
+		    JsonObject oid = new JsonObject();
+		    oid.addProperty("$oid", post.get("_id").getAsString());
+		    jsonPost.add("_id", oid);
+
+		    jsonPost.addProperty("titulo", post.get("titulo").getAsString());
+		    jsonPost.addProperty("resumen", post.get("resumen").getAsString());
+		    jsonPost.addProperty("texto", post.get("texto").getAsString());
+
+		    JsonArray tags = post.getAsJsonArray("tags");
+		    jsonPost.add("tags", tags != null ? tags : new JsonArray());
+
+		    JsonArray links = post.getAsJsonArray("links-relacionados");
+		    jsonPost.add("links-relacionados", links != null ? links : new JsonArray());
+
+		    jsonPost.addProperty("autor", post.get("autor").getAsString());
+
+		    if (post.has("fecha")) {
+		        JsonObject fecha = new JsonObject();
+		        fecha.addProperty("$date", post.get("fecha").getAsString());
+		        jsonPost.add("fecha", fecha);
+		    }
+
+		    resultado.add(jsonPost);
+
+		    return resultado.toString();
+		});
+
 
 		/**
 		 * Búsqueda libre dentro del texto del documento.
@@ -264,16 +378,53 @@ public class BlogAPI {
 			]
 		 * 
 		 * */
-		get("/search/:text", (req, res) ->
-			{
-				res.header("Access-Control-Allow-Origin", "*");
-				
-				//Recupero la palabra/frase ingresada por el usuario
-				String text = req.params("text");
-				
-    //implementar aca ...
-    return null;
-			});
+		get("/search/:text", (req, res) -> {
+		    res.header("Access-Control-Allow-Origin", "*");
+
+		    String text = req.params("text");
+
+		    // Construcción del query Mango
+		    JsonObject regex = new JsonObject();
+		    regex.addProperty("$regex", "(?i).*" + text + ".*"); // insensible a mayúsculas
+
+		    JsonObject texto = new JsonObject();
+		    texto.add("texto", regex);
+
+		    JsonObject selector = new JsonObject();
+		    selector.add("selector", texto);
+		    selector.addProperty("use_index", "texto-index"); // nombre del índice definido en CouchDB
+
+		    // Ejecutar la búsqueda
+		    List<JsonObject> resultados = dbClient.findDocs(selector.toString(), JsonObject.class);
+
+		    // Armar la respuesta
+		    JsonArray respuesta = new JsonArray();
+		    for (JsonObject doc : resultados) {
+		        JsonObject jsonPost = new JsonObject();
+
+		        JsonObject oid = new JsonObject();
+		        oid.addProperty("$oid", doc.get("_id").getAsString());
+		        jsonPost.add("_id", oid);
+
+		        jsonPost.addProperty("titulo", doc.get("titulo").getAsString());
+		        jsonPost.addProperty("resumen", doc.get("resumen").getAsString());
+		        jsonPost.addProperty("autor", doc.get("autor").getAsString());
+
+		        if (doc.has("fecha")) {
+		            JsonObject fecha = new JsonObject();
+		            fecha.addProperty("$date", doc.get("fecha").getAsString());
+		            jsonPost.add("fecha", fecha);
+		        }
+
+		        respuesta.add(jsonPost);
+		    }
+
+		    return respuesta.toString();
+		});
+
+
+
+
 		
 		Spark.exception(Exception.class, (exception, request, response) ->
 		{
