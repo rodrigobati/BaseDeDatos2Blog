@@ -383,21 +383,21 @@ public class BlogAPI {
 
 		    String text = req.params("text");
 
-		    // Construcción del query Mango
+		    // Construcción de consulta Mango como JSON
 		    JsonObject regex = new JsonObject();
-		    regex.addProperty("$regex", "(?i).*" + text + ".*"); // insensible a mayúsculas
+		    regex.addProperty("$regex", "(?i).*" + text + ".*"); // Búsqueda insensible a mayúsculas
 
-		    JsonObject texto = new JsonObject();
-		    texto.add("texto", regex);
+		    JsonObject campo = new JsonObject();
+		    campo.add("texto", regex);
 
 		    JsonObject selector = new JsonObject();
-		    selector.add("selector", texto);
-		    selector.addProperty("use_index", "texto-index"); // nombre del índice definido en CouchDB
+		    selector.add("selector", campo);
+		    //selector.addProperty("use_index", "texto-index");
 
-		    // Ejecutar la búsqueda
+		    // Convertimos el JsonObject a String y ejecutamos la consulta
 		    List<JsonObject> resultados = dbClient.findDocs(selector.toString(), JsonObject.class);
 
-		    // Armar la respuesta
+		    // Armamos la respuesta con solo los campos necesarios
 		    JsonArray respuesta = new JsonArray();
 		    for (JsonObject doc : resultados) {
 		        JsonObject jsonPost = new JsonObject();
@@ -421,6 +421,8 @@ public class BlogAPI {
 
 		    return respuesta.toString();
 		});
+
+
 
 
 
