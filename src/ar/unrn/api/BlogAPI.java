@@ -144,7 +144,7 @@ public class BlogAPI {
 		    List<JsonObject> posts = dbClient.view("ultimos/porFecha")
 		        .descending(true)
 		        .limit(4)
-		        .includeDocs(true) // si querés traer todos los campos
+		        .includeDocs(true) 
 		        .query(JsonObject.class);
 
 		    // Mapear cada post para devolver solo _id, titulo y resumen
@@ -159,12 +159,11 @@ public class BlogAPI {
 
 		        simplified.addProperty("titulo", post.get("titulo").getAsString());
 
-		        // Usar campo resumen si existe, o generar uno
+
 		        String texto = post.has("resumen") 
 		            ? post.get("resumen").getAsString() 
 		            : post.get("texto").getAsString();
 
-		        // Podés truncar el texto si querés
 		        simplified.addProperty("resumen", texto.length() > 50 ? texto.substring(0, 50) + "..." : texto);
 
 		        resultArray.add(simplified);
@@ -383,21 +382,28 @@ public class BlogAPI {
 
 		    String text = req.params("text");
 
-		    // Construcción de consulta Mango como JSON
 		    JsonObject regex = new JsonObject();
-		    regex.addProperty("$regex", "(?i).*" + text + ".*"); // Búsqueda insensible a mayúsculas
+		    regex.addProperty("$regex", "(?i).*" + text + ".*");
 
 		    JsonObject campo = new JsonObject();
 		    campo.add("texto", regex);
 
-		    JsonObject selector = new JsonObject();
-		    selector.add("selector", campo);
-		    //selector.addProperty("use_index", "texto-index");
+		    JsonObject query = new JsonObject();
+		    query.add("selector", campo);
 
-		    // Convertimos el JsonObject a String y ejecutamos la consulta
-		    List<JsonObject> resultados = dbClient.findDocs(selector.toString(), JsonObject.class);
+		    JsonArray fields = new JsonArray();
+		    fields.add("_id");
+		    fields.add("titulo");
+		    fields.add("resumen");
+		    fields.add("autor");
+		    fields.add("fecha");
 
-		    // Armamos la respuesta con solo los campos necesarios
+		    query.add("fields", fields);
+
+		    System.out.println(query.toString()); // debugging
+
+		    List<JsonObject> resultados = dbClient.findDocs(query.toString(), JsonObject.class);
+
 		    JsonArray respuesta = new JsonArray();
 		    for (JsonObject doc : resultados) {
 		        JsonObject jsonPost = new JsonObject();
@@ -421,6 +427,8 @@ public class BlogAPI {
 
 		    return respuesta.toString();
 		});
+
+
 
 
 
